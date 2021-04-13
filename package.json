@@ -26,6 +26,8 @@
   "author": "Marek Magdziak",
   "license": "MIT",
   "dependencies": {
+    "dayjs": "^1.10.4",
+    "n-readlines": "^1.0.1",
     "nan": "^2.2.0"
   },
   "devDependencies": {

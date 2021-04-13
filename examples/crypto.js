@@ -1,5 +1,7 @@
 var analytics = require('../index.js');
 var fs = require('fs');
+const lineByLine = require('n-readlines');
+const dayjs = require('dayjs');
 
 /**
  * Indicators selected for calculation
@@ -19,8 +21,8 @@ var indicators = [
   'Stochastic'
 ];
 
-var stopLoss = 0.0030;
-var takeProfit = 0.0030;
+var stopLoss = 0.0010;
+var takeProfit = 0.0013;
 
 /**
  * Training csv file worth of 6 month data
@@ -44,26 +46,26 @@ var testingFile = './data/DAT_MT_EURUSD_M1_201601.csv';
  * @param  {Function} callback  Callback function that is fired after data
  *                              is loaded
  */
-function loadCsvData(inputFile, callback) {
-  var csvContent = '';
+// function loadCsvData(inputFile, callback) {
+//   var csvContent = '';
 
-  var stream = fs.createReadStream(inputFile)
-    .on('readable', function() {
-      var buf = stream.read();
+//   var stream = fs.createReadStream(inputFile)
+//     .on('readable', function() {
+//       var buf = stream.read();
 
-      if (buf) {
-        csvContent += buf.toString();
-      }
-    })
-    .on('end', function() {
-      var candlesticks = parseCsv(csvContent);
-      candlesticks.sort(function(a, b) {
-        a.time - b.time;
-      });
+//       if (buf) {
+//         csvContent += buf.toString();
+//       }
+//     })
+//     .on('end', function() {
+//       var candlesticks = parseCsv(csvContent);
+//       candlesticks.sort(function(a, b) {
+//         a.time - b.time;
+//       });
 
-      callback(candlesticks);
-    });
-}
+//       callback(candlesticks);
+//     });
+// }
 
 /**
  * Calculates and presents potential revenue of a given strategy for given
@@ -159,53 +161,95 @@ function getTrades(candlesticks, strategy) {
  * Parses the given csv and returns array of candlesticks
  * @param  {String} text The csv file content
  */
-function parseCsv(text) {
-  var candlesticks = [];
-  var lines = text.split('\n');
+// function parseCsv(text) {
+//   var candlesticks = [];
+//   var lines = text.split('\n');
 
-  for (var i = 0; i < lines.length; i++) {
-    var parts = lines[i].split(',');
+//   for (var i = 0; i < lines.length; i++) {
+//     var parts = lines[i].split(',');
 
-    var date = new Date(parts[0] + ' ' + parts[1]);
-    var time = (date.getTime()) / 1000;
+//     var date = new Date(parts[0] + ' ' + parts[1]);
+//     var time = (date.getTime()) / 1000;
 
-    if (time) {
-      candlesticks.push({
-        open: parts[2],
-        high: parts[3],
-        low: parts[4],
-        close: parts[5],
-        time: time
-      });
-    }
-  }
+//     if (time) {
+//       candlesticks.push({
+//         open: parts[2],
+//         high: parts[3],
+//         low: parts[4],
+//         close: parts[5],
+//         time: time
+//       });
+//     }
+//   }
 
-  return candlesticks;
-}
+//   return candlesticks;
+// }
 
 /**
  * Converts candlesticks from lower timeframe to 30 minute timeframe
  */
-function convertTo30MOhlc(candlesticks) {
-  var n = analytics.convertOHLC(candlesticks, 1800);
-  return n;
-}
+// function convertTo30MOhlc(candlesticks) {
+//   var n = analytics.convertOHLC(candlesticks, 1800);
+//   return n;
+// }
 
 console.log('Loading training data set');
-loadCsvData(testingFile, function(testingCandlesticks) {
-  loadCsvData(trainingFile, function(candlesticks) {
 
-    var thirtyMinuteCandlesticks = convertTo30MOhlc(candlesticks);
-    var testing30MinuteCandlesticks = convertTo30MOhlc(testingCandlesticks);
 
-    console.log('Calculating strategy')
-    createStrategy(thirtyMinuteCandlesticks, testing30MinuteCandlesticks)
-      .then(function(strategy) {
-        console.log('------------Strategy-------------');
-        console.log(JSON.stringify(strategy, null, 4));
-        console.log('---------------------------------');
+async function start() {
+  file = new lineByLine(`../../binfut/data/BTCUSDT-30s.txt`)
+  let line
+  let candlesticks = []
+  while(line = file.next()) {
+    let obj = JSON.parse(line.toString())
+    candlesticks.push({
+      open: obj.open,
+      high: obj.high,
+      low: obj.low,
+      close: obj.close,
+      time: dayjs(obj.closeTime).toDate() // startTime
+    })
+  }
 
-        calculateTrades(testing30MinuteCandlesticks, strategy);
-      });
-  });
-});
+  file2 = new lineByLine(`../../binfut/data/ETHUSDT-30s.txt`)
+  let line2
+  let candlesticks2 = []
+  while(line2 = file2.next()) {
+    let obj = JSON.parse(line2.toString())
+    candlesticks2.push({
+      open: obj.open,
+      high: obj.high,
+      low: obj.low,
+      close: obj.close,
+      time: dayjs(obj.closeTime).toDate() // startTime
+    })
+  }
+
+  let strategy = await createStrategy(candlesticks, candlesticks2)
+  console.log('------------Strategy-------------')
+  console.log(JSON.stringify(strategy, null, 4))
+  console.log('---------------------------------')
+  calculateTrades(candlesticks2, strategy);
+
+  process.exit(0)
+}
+
+start()
+
+// loadCsvData(testingFile, function(testingCandlesticks) {
+//   loadCsvData(trainingFile, function(candlesticks) {
+
+//     var thirtyMinuteCandlesticks = convertTo30MOhlc(candlesticks);
+//     var testing30MinuteCandlesticks = convertTo30MOhlc(testingCandlesticks);
+
+//     console.log('Calculating strategy')
+//     createStrategy(thirtyMinuteCandlesticks, testing30MinuteCandlesticks)
+//       .then(function(strategy) {
+//         console.log('------------Strategy-------------');
+//         console.log(JSON.stringify(strategy, null, 4));
+//         console.log('---------------------------------');
+
+//         calculateTrades(testing30MinuteCandlesticks, strategy);
+//       });
+//   });
+// });
